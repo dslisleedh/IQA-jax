@@ -47,7 +47,7 @@ def load_model():
         configs = jnp.load('./config/inceptionv3.npz', allow_pickle=True)
 
     else:
-        params, config = save_pretrained_model(True)
+        params, config = save_pretrained_model(return_values=True)
 
     class Conv(nn.Module):
         name: str
