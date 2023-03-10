@@ -3,7 +3,6 @@ Image Quality Assessment library for jax. Converts the Numpy implementations fro
 
 ## NOTE
 <b>Current implementations are not tested. There's no sure the outputs are same with BasicSR(MATLAB)</b>  
-Jax only supports cudnn 8.2 or 8.6 but BasicSR currently support cudnn 8.5. Be aware version issues.  
 
 ## Metrics 
  - [X] PSNR
