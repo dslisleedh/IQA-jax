@@ -7,10 +7,47 @@ import flax.linen as nn
 
 from typing import Sequence
 
+import os
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def save_pretrained_model(return_values: bool = False, clear_session: bool = True):
+    os.makedirs('./configs', exist_ok=True)
+    os.makedirs('./params', exist_ok=True)
+    import tensorflow as tf
+
+    inception = tf.keras.applications.InceptionV3(include_top=False, weights='imagenet')
+
+    params = {}
+    for w in inception.weights:
+        if w.name.split('/')[0] not in params.keys():
+            params[w.name.split('/')[0]] = {}
+        params[w.name.split('/')[0]][w.name.split('/')[1]] = jnp.array(w, dtype=jnp.float32)
+    jnp.save('./params/inceptionv3.npz', params)
+
+    configs = {}
+    for layer in inception.layers:
+        configs[layer.name] = layer.get_config()
+    jnp.save('./config/inceptionv3.npz', configs)
+
+    del inception
+    if clear_session:
+        tf.keras.backend.clear_session()
+    if return_values:
+        return params, configs
+
 
 def load_model():
-    params = jnp.load('./config/inception_v3.npz', allow_pickle=True)
-    configs = jnp.load('./config/inception_v3.npz', allow_pickle=True)
+    # TODO: Remove params from git and make it manually downloadable from tf.keras
+    if os.path.exists('./config/inceptionv3.npz') and os.path.exists('./config/inceptionv3.npz'):
+        params = jnp.load('./config/inceptionv3.npz', allow_pickle=True)
+        configs = jnp.load('./config/inceptionv3.npz', allow_pickle=True)
+
+    else:
+        params, config = save_pretrained_model(True)
 
     class Conv(nn.Module):
         name: str
