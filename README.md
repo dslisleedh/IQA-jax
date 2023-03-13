@@ -8,7 +8,8 @@ Image Quality Assessment library for jax. Converts the Numpy implementations fro
  - [X] PSNR
  - [X] SSIM
  - [ ] NIQE
- - [X] FID
+ - [X] FID  
+ 
 This not Means implementations are tested.  
 
 ## Tests
