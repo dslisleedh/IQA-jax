@@ -1,14 +1,10 @@
+import warnings
+
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
-import jax.lax as lax
-
 import numpy as np
 from scipy import linalg
-
-import flax
-import flax.linen as nn
-
-import warnings
 
 
 def fid(feats_1: np.array, feats_2: np.array, eps: float = 1e-6) -> np.array:
@@ -16,12 +12,12 @@ def fid(feats_1: np.array, feats_2: np.array, eps: float = 1e-6) -> np.array:
     Current Jax's sqrtm implementation is different from scipy's sqrtm.
     So this implementation is just copy of BasicSR's FID calculation.
     It will be fixed in the future.
-    Not directly use BasicSR's FID calculation because prevent CUDA version related errors.
+    Not directly use BasicSR's FID calculation because prevent issues.
     https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/fid.py
 
-    Not incorporated feats extraction because original Numpy does not support Jit-compile.
+    Not incorporate feature extraction in this function because original Numpy does not support Jit-compile.
     """
-    warnings.warn("Current FID calculation does not support Jit-compile. It will be fixed in the future.")
+    warnings.warn("Current fid does not support Jit-compile. It will be fixed in the future.")
 
     mu1 = np.mean(feats_1, axis=0)
     mu2 = np.mean(feats_2, axis=0)
@@ -63,7 +59,7 @@ def fid_jax(
     Use this only when Jit-compile must be used.
     """
     warnings.warn("fid_jax function results different from original FID calculation."
-                  "Use FID if you don't need Jit-compile.")
+                  "Use fid() unless You must use jit-compile.")
 
     feats_1 = feats_extractor(imgs_1)
     feats_2 = feats_extractor(imgs_2)
@@ -87,9 +83,9 @@ def fid_jax(
 
     # Numerical error might give slight imaginary component
     if jnp.iscomplexobj(cov_sqrt):
-        # if not jnp.allclose(jnp.diagonal(cov_sqrt).imag, 0, atol=1e-3):
-        #     m = jnp.max(jnp.abs(cov_sqrt.imag))
-        #     raise ValueError(f'Imaginary component {m}')
+        if not jnp.allclose(jnp.diagonal(cov_sqrt).imag, 0, atol=1e-3):
+            m = jnp.max(jnp.abs(cov_sqrt.imag))
+            raise ValueError(f'Imaginary component {m}')
         cov_sqrt = cov_sqrt.real
 
     mean_diff = mu1 - mu2

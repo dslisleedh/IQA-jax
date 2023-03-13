@@ -1,8 +1,4 @@
-import jax
 import jax.numpy as jnp
-import jax.lax as lax
-
-import numpy as np
 
 
 def rgb2y(img: jnp.ndarray) -> jnp.ndarray:

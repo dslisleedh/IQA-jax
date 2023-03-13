@@ -4,12 +4,17 @@ Image Quality Assessment library for jax. Converts the Numpy implementations fro
 ## NOTE
 <b>Current implementations are not tested. There's no sure the outputs are same with BasicSR(MATLAB)</b>  
 
-## Metrics 
+## Metrics
  - [X] PSNR
  - [X] SSIM
  - [ ] NIQE
  - [X] FID
+This not Means implementations are tested.  
 
-## TODO
- - [ ] Testing Codes(Compare Numpy(BasicSR), Jax.Numpy(CPU), Jax.Numpy(GPU))  ~Maybe Pytorch CPU?~
- - [X] InceptionV3 Using flax.
+## Tests
+ - [ ] PSNR
+ - [ ] SSIM
+ - [ ] NIQE
+ - [ ] FID
+ - [ ] InceptionV3
+ - [X] RGB2Y Conversion

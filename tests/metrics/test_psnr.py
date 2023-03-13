@@ -1,18 +1,12 @@
-import os
-
-import numpy as np
-import jax
-import jax.numpy as jnp
-
-from iqa.metrics.psnr import psnr, PSNR
-from iqa.metrics.ssim import ssim, SSIM
-
-from absl.testing import parameterized, absltest
 from functools import partial
 from itertools import product
 
-from basicsr.metrics.psnr_ssim import calculate_psnr, calculate_ssim
+import jax
+import jax.numpy as jnp
+import numpy as np
+from absl.testing import parameterized, absltest
 
+from iqa.metrics.psnr import psnr, PSNR
 
 jax.config.update('jax_enable_x64', True)
 jax.config.parse_flags_with_absl()
@@ -28,15 +22,15 @@ search_space_list = list(product(*search_space.values()))
 search_space = [dict(zip(search_space.keys(), v)) for v in search_space_list]
 
 
-class TestMetrics(parameterized.TestCase):
+class TestPSNR(parameterized.TestCase):
     def __init__(self, *args, **kwargs):
-        super(TestMetrics, self).__init__(*args, **kwargs)
+        super(TestPSNR, self).__init__(*args, **kwargs)
 
         self.inputs1 = np.random.randint(0., 256., size=(16, 256, 256, 3), dtype=np.uint8)
         self.inputs2 = np.random.randint(0., 256., size=(16, 256, 256, 3), dtype=np.uint8)
 
     @parameterized.parameters(*search_space)
-    def test_psnr(self, crop_border, test_y, is_single_input, use_class, use_gpu):
+    def eval_result(self, crop_border, test_y, is_single_input, use_class, use_gpu):
         device = jax.devices('gpu' if use_gpu else 'cpu')[0]
         if is_single_input:
             inputs1 = self.inputs1[0].copy()

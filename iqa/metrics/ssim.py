@@ -1,7 +1,5 @@
 import jax
 import jax.numpy as jnp
-import jax.lax as lax
-
 import numpy as np
 
 from iqa.utils.convert_img import preprocess
