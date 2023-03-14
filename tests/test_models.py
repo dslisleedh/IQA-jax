@@ -9,7 +9,6 @@ from absl.testing import absltest
 from tqdm import tqdm
 
 
-jax.config.update('jax_enable_x64', True)
 jax.config.parse_flags_with_absl()
 
 

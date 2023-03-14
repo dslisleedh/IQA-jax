@@ -10,12 +10,12 @@ Image Quality Assessment library for jax. Converts the Numpy implementations fro
  - [ ] NIQE
  - [X] FID  
  
-This not Means implementations are tested.  
+This not means implementations are tested.  
 
 ## Tests
- - [ ] PSNR
+ - [X] PSNR
  - [ ] SSIM
  - [ ] NIQE
  - [ ] FID
  - [ ] InceptionV3
- - [X] RGB2Y Conversion
+ - [X] RGB2Y Conversion and Preprocess  

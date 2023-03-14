@@ -9,10 +9,9 @@ def psnr(
     img1 = preprocess(img1, crop_border, test_y)
     img2 = preprocess(img2, crop_border, test_y)
 
-    mse = jnp.mean(jnp.square(img1 - img2), axis=(1, 2, 3), dtype=jnp.float64)
+    mse = jnp.mean((img1 - img2) ** 2, axis=(1, 2, 3))
     mask = mse == 0
-    val = 10 * jnp.log10(jnp.square(jnp.array(255., dtype=jnp.float64)) / mse)
-    return jnp.where(mask, jnp.inf, val)
+    return jnp.where(mask, 1.0, 10.0 * jnp.log10(255 ** 2 / mse))
 
 
 class PSNR:

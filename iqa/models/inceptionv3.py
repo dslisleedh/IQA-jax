@@ -19,7 +19,7 @@ logger = logging.getLogger("iqa")
 
 def _load_params(params_in):
     os.makedirs('~/iqa_jax/params', exist_ok=True)
-    os.remove('~/iqa_jax/params/inception_v3.sav')
+    # os.remove('~/iqa_jax/params/inception_v3.sav')
 
     if os.path.exists('~/iqa_jax/params/inception_v3.sav'):
         logger.info('Files already exist. Loading from disk.')
@@ -65,8 +65,11 @@ def _load_params(params_in):
 
 
 def load_model():
+
     def conv_bn_act(
-            x, filters: int, kernel_size: Sequence[int], n: int, strides: Sequence[int] = (1, 1), padding: str = 'SAME'):
+            x, filters: int, kernel_size: Sequence[int], n: int,
+            strides: Sequence[int] = (1, 1), padding: str = 'SAME'
+    ) -> jnp.ndarray:
         x = nn.Conv(
             features=filters, kernel_size=kernel_size, strides=strides, dtype=jnp.float32,
             padding=padding, use_bias=False, name=f'conv2d_{n}' if n != 0 else 'conv2d')(x)

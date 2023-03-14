@@ -12,10 +12,11 @@ def fid(feats_1: np.array, feats_2: np.array, eps: float = 1e-6) -> np.array:
     Current Jax's sqrtm implementation is different from scipy's sqrtm.
     So this implementation is just copy of BasicSR's FID calculation.
     It will be fixed in the future.
-    Not directly use BasicSR's FID calculation because prevent issues.
+    Not directly use BasicSR's FID calculation to prevent issues.
     https://github.com/XPixelGroup/BasicSR/blob/master/basicsr/metrics/fid.py
 
-    Not incorporate feature extraction in this function because original Numpy does not support Jit-compile.
+    Not incorporate feature extraction in this function because original Numpy does not support Jit-compile
+    while Flax's module does.
     """
     warnings.warn("Current fid does not support Jit-compile. It will be fixed in the future.")
 
