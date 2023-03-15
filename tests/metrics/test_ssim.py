@@ -41,8 +41,7 @@ class TestSSIM(parameterized.TestCase):
         cv2_gauss = cv2.getGaussianKernel(kernel_size, sigma)
         cv2_kernel = cv2_gauss @ cv2_gauss.T
         jax_kernel = _get_2d_gaussian_kernel(kernel_size, sigma).squeeze()
-        np.testing.assert_allclose(cv2_kernel, jax_kernel, rtol=1e-3, atol=1e-5)
-
+        np.testing.assert_allclose(cv2_kernel, jax_kernel, atol=1e-7)
 
     @parameterized.parameters(*search_space)
     def test_result(self, crop_border, test_y, is_single_input, use_class, use_gpu):
@@ -56,13 +55,14 @@ class TestSSIM(parameterized.TestCase):
 
         if use_class:
             metric_ssim = SSIM(crop_border=crop_border, test_y=test_y)
-            ssim_call_func = metric_ssim.__call__
+            ssim_call_func = jax.jit(metric_ssim.__call__)
         else:
             metric_ssim = partial(ssim, crop_border=crop_border, test_y=test_y)
-            ssim_call_func = metric_ssim
+            ssim_call_func = jax.jit(metric_ssim)
 
         if is_single_input:  # BasicSR uses BGR2YCbCr to get Y channel. So I reversed the channel.
-            bsr_ssim = calculate_ssim(inputs1[..., ::-1], inputs2[..., ::-1], crop_border=crop_border, test_y_channel=test_y)
+            bsr_ssim = calculate_ssim(
+                inputs1[..., ::-1], inputs2[..., ::-1], crop_border=crop_border, test_y_channel=test_y)
         else:
             bsr_ssim = []
             for i in range(inputs1.shape[0]):
