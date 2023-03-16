@@ -10,8 +10,8 @@ def psnr(
     Calculate PSNR between two images.
 
     Args:
-        img1: 0 ~ 255 RGB image
-        img2: 0 ~ 255 RGB image
+        img1: 0 ~ 255 RGB image (N, H, W, C)
+        img2: 0 ~ 255 RGB image (N, H, W, C)
         crop_border: Crop border size.
         test_y: Whether to use Y channel for PSNR calculation.
 

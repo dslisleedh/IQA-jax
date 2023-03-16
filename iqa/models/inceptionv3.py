@@ -13,17 +13,24 @@ import pickle
 import warnings
 
 
-# TODO: Fix this
+"""
+I checked all parameters are loaded correctly, But Output is not same as tf.keras.
+I think It's not a data type issue. I'll fix it later.
+"""
+
 logger = logging.getLogger("iqa")
 
 
 def _load_params(params_in):
-    os.makedirs('~/iqa_jax/params', exist_ok=True)
-    # os.remove('~/iqa_jax/params/inception_v3.sav')
+    home_dir = os.path.expanduser("~")
+    dir_path = os.path.join(home_dir, 'iqa_jax/params')
+    os.makedirs(dir_path, exist_ok=True)
+    if os.path.exists(dir_path + '/inception_v3.sav'):
+        os.remove(dir_path + '/inception_v3.sav')
 
-    if os.path.exists('~/iqa_jax/params/inception_v3.sav'):
+    if os.path.exists(dir_path + '/inception_v3.sav'):
         logger.info('Files already exist. Loading from disk.')
-        params_bytes = pickle.load(open('~/iqa_jax/params/inception_v3.sav', 'rb'))
+        params_bytes = pickle.load(open(dir_path + '/inception_v3.sav', 'rb'))
         params = flax.core.unfreeze(flax.serialization.from_bytes(params_in, params_bytes))
 
     else:
@@ -48,17 +55,17 @@ def _load_params(params_in):
         # Params
         for p in params_in['params'].keys():
             if 'conv2d' in p:
-                params_in['params'][p]['kernel'] = jnp.asarray(params_tf[p]['kernel:0'], dtype=jnp.float32)
+                params_in['params'][p]['kernel'] = params_tf[p]['kernel:0']
             elif 'batch_normalization' in p:
-                params_in['params'][p]['bias'] = jnp.asarray(params_tf[p]['beta:0'], dtype=jnp.float32)
+                params_in['params'][p]['bias'] = params_tf[p]['beta:0']
 
         # Variables
         for p in params_in['batch_stats'].keys():
-            params_in['batch_stats'][p]['mean'] = jnp.asarray(params_tf[p]['moving_mean:0'], dtype=jnp.float32)
-            params_in['batch_stats'][p]['var'] = jnp.asarray(params_tf[p]['moving_variance:0'], dtype=jnp.float32)
+            params_in['batch_stats'][p]['mean'] = params_tf[p]['moving_mean:0']
+            params_in['batch_stats'][p]['var'] = params_tf[p]['moving_variance:0']
 
         params_bytes = flax.serialization.to_bytes(params_in)
-        pickle.dump(params_bytes, open('~/iqa_jax/params/inception_v3.sav', 'wb'))
+        pickle.dump(params_bytes, open(dir_path + '/inception_v3.sav', 'wb'))
         params = flax.core.unfreeze(params_in)
 
     return params

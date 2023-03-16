@@ -9,7 +9,7 @@ from iqa.utils.convert_img import preprocess
 def _get_2d_gaussian_kernel(kernel_size: int, sigma: float) -> jnp.ndarray:
     ax = jnp.linspace(-(kernel_size - 1) / 2., (kernel_size - 1) / 2., kernel_size, dtype=jnp.float64)
     gauss = jnp.exp(-0.5 * jnp.square(ax) / jnp.square(sigma))[..., jnp.newaxis]
-    kernel = jnp.outer(gauss, gauss.T)
+    kernel = gauss @ gauss.T
     return (kernel / jnp.sum(kernel))[..., jnp.newaxis, jnp.newaxis]
 
 
@@ -54,8 +54,8 @@ def ssim(
     Calculate SSIM between two images.
 
     Args:
-        img1(jnp.ndarray[int, float]): 0 ~ 255 RGB image
-        img2(jnp.ndarray[int, float]): 0 ~ 255 RGB image
+        img1(jnp.ndarray[int, float]): 0 ~ 255 RGB image (N, H, W, C)
+        img2(jnp.ndarray[int, float]): 0 ~ 255 RGB image (N, H, W, C)
         crop_border(int): Crop border size.
         test_y(bool): Whether to use Y channel for PSNR calculation.
         kernel_size(int): Gaussian kernel size.

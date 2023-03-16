@@ -4,7 +4,8 @@ import numpy as np
 from absl.testing import parameterized, absltest
 
 import cv2
-from iqa.metrics.ssim import ssim, SSIM, _get_2d_gaussian_kernel
+from iqa.metrics import ssim, SSIM
+from iqa.metrics.ssim import _get_2d_gaussian_kernel
 from basicsr.metrics.psnr_ssim import calculate_ssim
 
 from functools import partial

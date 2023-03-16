@@ -3,12 +3,11 @@ import jax.numpy as jnp
 import numpy as np
 from absl.testing import parameterized, absltest
 
-from iqa.metrics.psnr import psnr, PSNR
+from iqa.metrics import psnr, PSNR
 from basicsr.metrics.psnr_ssim import calculate_psnr
 
 from functools import partial
 from itertools import product
-
 
 jax.config.parse_flags_with_absl()
 

@@ -7,6 +7,11 @@ import numpy as np
 from scipy import linalg
 
 
+"""
+Maybe work but not tested.
+"""
+
+
 def fid(feats_1: np.array, feats_2: np.array, eps: float = 1e-6) -> np.array:
     """
     Current Jax's sqrtm implementation is different from scipy's sqrtm.
@@ -17,8 +22,16 @@ def fid(feats_1: np.array, feats_2: np.array, eps: float = 1e-6) -> np.array:
 
     Not incorporate feature extraction in this function because original Numpy does not support Jit-compile
     while Flax's module does.
+
+    Args:
+        feats_1:
+        feats_2:
+        eps:
+
+    Returns:
+        np.ndarray: calculated fid score
     """
-    warnings.warn("Current fid does not support Jit-compile. It will be fixed in the future.")
+    warnings.warn("Current fid does not support jit-compile. It will be fixed in the future.")
 
     mu1 = np.mean(feats_1, axis=0)
     mu2 = np.mean(feats_2, axis=0)
