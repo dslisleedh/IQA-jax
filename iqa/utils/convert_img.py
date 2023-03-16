@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import jax.lax as lax
 
 from typing import Sequence
 
@@ -77,19 +78,17 @@ def cubic(x: jnp.ndarray) -> jnp.ndarray:
 
 
 def calculate_weights_indices(
-        in_length: int, out_length: int, scale: float | int, kernel: callable,
-        kernel_width: int, antialias: bool, channels: int
+        in_length, out_length, scale, kernel, kernel_width, antialias: bool, p
 ) -> Sequence:
     if scale < 1 and antialias:
         kernel_width = kernel_width / scale
 
     x = jnp.linspace(1, out_length, out_length, dtype=jnp.float64)
     u = x / scale + 0.5 * (1. - 1. / scale)
-    left = jnp.floor(u - kernel_width / 2.)
-    p = int(kernel_width) + 2
+    left = jnp.floor(u - kernel_width / 2.).astype(jnp.int32)
 
     indices = left[..., jnp.newaxis].repeat(p, axis=-1) \
-              + jnp.linspace(0, p - 1, p, dtype=jnp.float64)[jnp.newaxis, ...].repeat(out_length, axis=0)
+              + jnp.linspace(0, p - 1, p, dtype=jnp.int32)[jnp.newaxis, ...].repeat(out_length, axis=0)
 
     distance_to_center = u[..., jnp.newaxis].repeat(p, axis=-1) - indices
 
@@ -102,34 +101,39 @@ def calculate_weights_indices(
     weights /= weighted_sum
 
     weights_zero_tmp = jnp.sum((weights == 0), axis=0)
-    if weights_zero_tmp[0] > 0:
-        indices = indices[:, 1:p - 1]
-        weights = weights[:, 1:p - 1]
-    if weights_zero_tmp[-1] > 0:
-        indices = indices[:, 0:p - 2]
-        weights = weights[:, 0:p - 2]
+    """
+    Orginal code Cut off the weights of the boundary pixels.
+    But jax.lax.cond can't deal with different shape per path. So I just set the weights to 0.
+    indices might cause problem, But at least in test code, it works.
+    """
+    weights = lax.cond(
+        weights_zero_tmp[0] > 0, lambda x: x.at[:, :1].set(0.).at[:, p-1:].set(0.), lambda x: x, weights
+    )
+    weights = lax.cond(
+        weights_zero_tmp[-1] > 0, lambda x: x.at[:, p - 2:].set(0.), lambda x: x, weights
+    )
     sym_len_s = -jnp.min(indices) + 1
     sym_len_e = jnp.max(indices) - in_length
     indices = indices + sym_len_s - 1
-    # For now, Just convert weight after all procedure is done.
-    # weights = weights[0, :]
-    # weights = weights[jnp.newaxis, jnp.newaxis, ..., jnp.newaxis, jnp.newaxis].repeat(axis=-1, repeats=channels)
-    return weights, indices.astype(jnp.int32), int(sym_len_s), int(sym_len_e)
+    return weights, indices, sym_len_s.astype(jnp.int32), sym_len_e.astype(jnp.int32)
 
 
 def imresize(img: jnp.ndarray, scale: float | int, antialiasing: bool = True) -> jnp.ndarray:
+    if img.ndim == 3:
+        img = img[jnp.newaxis, ...]
     _, h, w, c = img.shape
     h_new = int(h * scale)
-    w_new = int(w * scale)
+    w_new = int(h * scale)
     kernel_size = 4
     kernel = cubic
+    p = kernel_size + 2
 
     weights_h, indices_h, sym_len_s_h, sym_len_e_h = calculate_weights_indices(
-        h, h_new, scale, kernel, kernel_size, antialiasing, c
+        h, h_new, scale, kernel, kernel_size, antialiasing, p
     )
     weights_w, indices_w, sym_len_s_w, sym_len_e_w = calculate_weights_indices(
-        w, w_new, scale, kernel, kernel_size, antialiasing, c
-    )  # weight shape: (out_length, kernel_width), indices shape: (out_length, kernel_width)
+        w, w_new, scale, kernel, kernel_size, antialiasing, p
+    )
 
     # H-wise First
     img = jnp.pad(img, ((0, 0), (sym_len_s_h, sym_len_e_h), (0, 0), (0, 0)), mode='symmetric')
