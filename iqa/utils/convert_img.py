@@ -142,18 +142,25 @@ def imresize_half(img: jnp.ndarray, antialiasing: bool = True) -> jnp.ndarray:
 
     # H-wise First
     img = jnp.pad(img, ((0, 0), (sym_len_s_h, sym_len_e_h), (0, 0), (0, 0)), mode='symmetric')
-    def calc_h(x, indices, weights):
-        stacked = jnp.take_along_axis(x, indices[jnp.newaxis, :, jnp.newaxis, jnp.newaxis], axis=1)
-        weighted_product = stacked * weights[jnp.newaxis, ..., jnp.newaxis, jnp.newaxis]
-        return jnp.sum(weighted_product, axis=1, keepdims=False)
-    img = jax.vmap(calc_h, in_axes=(None, 0, 0), out_axes=1)(img, indices_h, weights_h)
+    # def calc_h(x, indices, weights):
+    #     stacked = jnp.take_along_axis(x, indices[jnp.newaxis, :, jnp.newaxis, jnp.newaxis], axis=1)
+    #     weighted_product = stacked * weights[jnp.newaxis, ..., jnp.newaxis, jnp.newaxis]
+    #     return jnp.sum(weighted_product, axis=1, keepdims=False)
+    # img = jax.vmap(calc_h, in_axes=(None, 0, 0), out_axes=1)(img, indices_h, weights_h)
+    weights_h = weights_h[0, :][..., jnp.newaxis, jnp.newaxis, jnp.newaxis]
+    img = lax.conv_general_dilated(
+        img, weights_h, window_strides=(2, 1), padding='VALID', dimension_numbers=('NHWC', 'HWIO', 'NHWC')
+    )
 
     # W-wise Second
     img = jnp.pad(img, ((0, 0), (0, 0), (sym_len_s_w, sym_len_e_w), (0, 0)), mode='symmetric')
-    def calc_w(x, indices, weights):
-        stacked = jnp.take_along_axis(x, indices[jnp.newaxis, jnp.newaxis, :, jnp.newaxis], axis=2)
-        weighted_product = stacked * weights[jnp.newaxis, jnp.newaxis, ..., jnp.newaxis]
-        return jnp.sum(weighted_product, axis=2, keepdims=False)
-    img = jax.vmap(calc_w, in_axes=(None, 0, 0), out_axes=2)(img, indices_w, weights_w)
-
+    # def calc_w(x, indices, weights):
+    #     stacked = jnp.take_along_axis(x, indices[jnp.newaxis, jnp.newaxis, :, jnp.newaxis], axis=2)
+    #     weighted_product = stacked * weights[jnp.newaxis, jnp.newaxis, ..., jnp.newaxis]
+    #     return jnp.sum(weighted_product, axis=2, keepdims=False)
+    # img = jax.vmap(calc_w, in_axes=(None, 0, 0), out_axes=2)(img, indices_w, weights_w)
+    weights_w = weights_w[0, :][jnp.newaxis, ..., jnp.newaxis, jnp.newaxis]
+    img = lax.conv_general_dilated(
+        img, weights_w, window_strides=(1, 2), padding='VALID', dimension_numbers=('NHWC', 'HWIO', 'NHWC')
+    )
     return img

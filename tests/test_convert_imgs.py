@@ -34,7 +34,7 @@ search_space = [dict(zip(search_space.keys(), v)) for v in search_space_list]
 
 
 resize_search_space = {
-    'in_length': [128, 256, 512, 1024],
+    'in_length': [96 * 1, 96 * 2, 96 * 3, 96 * 4],
     'antialiasing': [True, False],
 }
 resize_search_space_list = list(itertools.product(*resize_search_space.values()))
@@ -94,7 +94,7 @@ class PreprocessingTest(parameterized.TestCase):
 
 
 class TestResize(parameterized.TestCase):
-    def test_1cubic(self):
+    def test_1cubic_function(self):
         for _ in tqdm(range(100), desc='Testing cubic ...'):
             inputs = np.random.normal((16, 256, 256, 3))
             inputs_jax = jnp.array(inputs, dtype=jnp.float64)
@@ -113,6 +113,7 @@ class TestResize(parameterized.TestCase):
         y_bsr = imresize(img[0], .5, antialiasing=antialiasing)
 
         func = partial(imresize_jax, antialiasing=antialiasing)
+        # func = jax.jit(func)
         y_jax = func(img_jax)
 
         np.testing.assert_allclose(y_bsr.squeeze(), y_jax.squeeze(), atol=1e-4, rtol=1e-4)
