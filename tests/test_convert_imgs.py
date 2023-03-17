@@ -12,7 +12,7 @@ from iqa.utils.convert_img import preprocess, rgb2gray
 from iqa.utils.convert_img import (
     cubic as cubic_jax,
     calculate_weights_indices as calculate_weights_indices_jax,
-    imresize as imresize_jax,
+    imresize_half as imresize_jax,
 )
 
 from absl.testing import absltest, parameterized
@@ -34,10 +34,8 @@ search_space = [dict(zip(search_space.keys(), v)) for v in search_space_list]
 
 
 resize_search_space = {
-    'in_length': [256, 512],
-    'scale': [0.5, 2.],
+    'in_length': [128, 256, 512, 1024],
     'antialiasing': [True, False],
-    'is_single': [True, False],
 }
 resize_search_space_list = list(itertools.product(*resize_search_space.values()))
 resize_search_space = [dict(zip(resize_search_space.keys(), v)) for v in resize_search_space_list]
@@ -108,24 +106,16 @@ class TestResize(parameterized.TestCase):
             np.testing.assert_allclose(y_bsr.squeeze(), y_jax.squeeze(), atol=1e-4, rtol=1e-4)
 
     @parameterized.parameters(resize_search_space)
-    def test_2bicubic_resize(self, in_length, scale, antialiasing, is_single):
-        if is_single:
-            img = np.random.normal(size=(in_length, in_length, 1))
-        else:
-            img = np.random.normal(size=(32, in_length, in_length, 1))
+    def test_2bicubic_resize(self, in_length, antialiasing):
+        img = np.random.normal(size=(1, in_length, in_length, 1))
         img_jax = jnp.array(img, dtype=jnp.float64)
 
-        # if is_single:
-        #     y_bsr = imresize(img, scale, antialiasing=antialiasing)
-        # else:
-        #     y_bsr = []
-        #     for i in range(img.shape[0]):
-        #         y_bsr.append(imresize(img[i], scale, antialiasing=antialiasing))
-        #     y_bsr = np.stack(y_bsr)
-        func = partial(imresize_jax, scale=scale, antialiasing=antialiasing)
+        y_bsr = imresize(img[0], .5, antialiasing=antialiasing)
+
+        func = partial(imresize_jax, antialiasing=antialiasing)
         y_jax = func(img_jax)
 
-        # np.testing.assert_allclose(y_bsr.squeeze(), y_jax.squeeze(), atol=1e-4, rtol=1e-4)
+        np.testing.assert_allclose(y_bsr.squeeze(), y_jax.squeeze(), atol=1e-4, rtol=1e-4)
 
 
 if __name__ == '__main__':

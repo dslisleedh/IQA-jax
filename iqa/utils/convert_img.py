@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import jax.lax as lax
 
 from typing import Sequence
+from functools import partial
 
 
 def rgb2y(img: jnp.ndarray) -> jnp.ndarray:
@@ -78,14 +79,16 @@ def cubic(x: jnp.ndarray) -> jnp.ndarray:
 
 
 def calculate_weights_indices(
-        in_length, out_length, scale, kernel, kernel_width, antialias: bool, p
+        in_length, out_length, scale, kernel, kernel_size, antialias
 ) -> Sequence:
     if scale < 1 and antialias:
-        kernel_width = kernel_width / scale
+        kernel_size = kernel_size / scale
+
+    p = int(kernel_size + 2)
 
     x = jnp.linspace(1, out_length, out_length, dtype=jnp.float64)
     u = x / scale + 0.5 * (1. - 1. / scale)
-    left = jnp.floor(u - kernel_width / 2.).astype(jnp.int32)
+    left = jnp.floor(u - kernel_size / 2.).astype(jnp.int32)
 
     indices = left[..., jnp.newaxis].repeat(p, axis=-1) \
               + jnp.linspace(0, p - 1, p, dtype=jnp.int32)[jnp.newaxis, ...].repeat(out_length, axis=0)
@@ -100,39 +103,41 @@ def calculate_weights_indices(
     weighted_sum = jnp.sum(weights, axis=1, keepdims=True)
     weights /= weighted_sum
 
-    weights_zero_tmp = jnp.sum((weights == 0), axis=0)
-    """
-    Orginal code Cut off the weights of the boundary pixels.
-    But jax.lax.cond can't deal with different shape per path. So I just set the weights to 0.
-    indices might cause problem, But at least in test code, it works.
-    """
-    weights = lax.cond(
-        weights_zero_tmp[0] > 0, lambda x: x.at[:, :1].set(0.).at[:, p-1:].set(0.), lambda x: x, weights
-    )
-    weights = lax.cond(
-        weights_zero_tmp[-1] > 0, lambda x: x.at[:, p - 2:].set(0.), lambda x: x, weights
-    )
-    sym_len_s = -jnp.min(indices) + 1
-    sym_len_e = jnp.max(indices) - in_length
+    weights = lax.slice(weights, (0, 1), (out_length, p - 1))
+    indices = lax.slice(indices, (0, 1), (out_length, p - 1))
+
+    sym_len_s = kernel_size // 2 - 1
+    sym_len_e = kernel_size // 2 - 1
     indices = indices + sym_len_s - 1
-    return weights, indices, sym_len_s.astype(jnp.int32), sym_len_e.astype(jnp.int32)
+    return weights, indices.astype(jnp.int32), int(sym_len_s), int(sym_len_e)
 
 
-def imresize(img: jnp.ndarray, scale: float | int, antialiasing: bool = True) -> jnp.ndarray:
+def imresize_half(img: jnp.ndarray, antialiasing: bool = True) -> jnp.ndarray:
+    """
+    It is hard to implement interpolation function for every scale.
+    So, I use interpolation for half scale that needed for calculate NIQE.
+
+    Args:
+        img:
+        antialiasing:
+
+    Returns:
+
+    """
     if img.ndim == 3:
         img = img[jnp.newaxis, ...]
     _, h, w, c = img.shape
+    scale = .5
     h_new = int(h * scale)
     w_new = int(h * scale)
-    kernel_size = 4
     kernel = cubic
-    p = kernel_size + 2
+    kernel_size = 4
 
     weights_h, indices_h, sym_len_s_h, sym_len_e_h = calculate_weights_indices(
-        h, h_new, scale, kernel, kernel_size, antialiasing, p
+        h, h_new, scale, kernel, kernel_size, antialiasing
     )
     weights_w, indices_w, sym_len_s_w, sym_len_e_w = calculate_weights_indices(
-        w, w_new, scale, kernel, kernel_size, antialiasing, p
+        w, w_new, scale, kernel, kernel_size, antialiasing
     )
 
     # H-wise First
