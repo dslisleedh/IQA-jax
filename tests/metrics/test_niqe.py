@@ -8,7 +8,8 @@ from iqa.metrics.niqe import (
     _estimate_aggd_param as estimate_aggd_param_jax,
     _compute_feature as compute_feature_jax,
     _calculate_niqe as niqe_jax,
-    niqe as calculate_niqe_jax
+    niqe as calculate_niqe_jax,
+    NIQE as NIQE_jax
 )
 from basicsr.metrics import niqe as niqe_module
 from basicsr.metrics.niqe import compute_feature, estimate_aggd_param, niqe, calculate_niqe
@@ -22,7 +23,9 @@ import pickle
 search_space = {
     'crop_border': [0, 4, 8],
     'use_gpu': [True, False],
-    'channel': ['y', 'gray']
+    'channel': ['y', 'gray'],
+    'is_single_input': [True, False],
+    'use_class': [True, False],
 }
 search_space_list = list(product(*search_space.values()))
 search_space = [dict(zip(search_space.keys(), v)) for v in search_space_list]
@@ -38,7 +41,7 @@ class TestNIQE(parameterized.TestCase):
             res = np.array(estimate_aggd_param(block))
             res_jax = np.array(jax.jit(estimate_aggd_param_jax)(block_jax))
 
-            np.testing.assert_allclose(res, res_jax, rtol=1e-3, atol=1e-7)
+            np.testing.assert_allclose(res, res_jax, atol=1e-7)
 
     def test_2_compute_features_from_blocks(self):
         for _ in tqdm(range(100), desc='Testing compute_features_from_blocks'):
@@ -49,7 +52,7 @@ class TestNIQE(parameterized.TestCase):
             res = np.array(compute_feature(block))
             res_jax = np.array(jax.jit(compute_feature_jax)(block_jax))
 
-            np.testing.assert_allclose(res, res_jax, rtol=1e-3, atol=1e-7)
+            np.testing.assert_allclose(res, res_jax, atol=1e-7)
 
     def test_3_compare_pris_params(self):
         module_path = niqe_module.__file__
@@ -67,7 +70,7 @@ class TestNIQE(parameterized.TestCase):
             pris_params_jax = pickle.load(f)
 
         for k, v in pris_params.items():
-            np.testing.assert_allclose(v, pris_params_jax[k], rtol=1e-3, atol=1e-7)
+            np.testing.assert_allclose(v, pris_params_jax[k], atol=1e-7)
 
     def test_4_compare_niqe(self):
         module_path = niqe_module.__file__
@@ -85,33 +88,50 @@ class TestNIQE(parameterized.TestCase):
         cov_pris_param_jax = pris_params_jax['cov_pris_param']
         gaussian_window_jax = pris_params_jax['gaussian_window']
 
+        func = niqe_jax
+        # func = jax.jit(niqe_jax)
         for _ in tqdm(range(100), desc='Testing calculate_niqe'):
             inputs = np.random.randint(0, 256, (96*4, 96*4, 1))
             inputs_bsr = inputs.astype(np.float32)[..., 0]
-            inputs_jax = jnp.array(inputs, dtype=jnp.float64)[jnp.newaxis, ...]
+            inputs_jax = jnp.array(inputs, dtype=jnp.float64)
 
             res = niqe(inputs_bsr, mu_pris_param, cov_pris_param, gaussian_window)
-            res_jax = jax.jit(niqe_jax)(
-                inputs_jax, mu_pris_param_jax, cov_pris_param_jax, gaussian_window_jax)
+            res_jax = func(inputs_jax, mu_pris_param_jax, cov_pris_param_jax, gaussian_window_jax)
 
-            np.testing.assert_allclose(res, res_jax, rtol=1e-3, atol=1e-7)
+            np.testing.assert_allclose(res, res_jax, atol=1e-7)
 
     # @parameterized.parameters(*search_space)
-    # def test_5_niqe_wrapper(self, channel, crop_border, use_gpu):
+    # def test_5_niqe_wrapper(self, channel, crop_border, use_gpu, use_class, is_single_input):
     #     device = jax.devices('gpu' if use_gpu else 'cpu')[0]
-    #     for _ in tqdm(range(10), desc='Testing niqe_wrapper'):
+    #
+    #     if is_single_input:
     #         inputs = np.random.randint(0, 256, (96*4, 96*4, 3))
-    #         inputs_bsr = inputs.astype(np.float32)[..., ::-1]
+    #     else:
+    #         inputs = np.random.randint(0, 256, (2, 96*4, 96*4, 3))
+    #     inputs_bsr = inputs.astype(np.float32)[..., ::-1]
+    #     if is_single_input:
     #         inputs_jax = jnp.array(inputs, dtype=jnp.float64)[jnp.newaxis, ...]
-    #         inputs_jax = jax.device_put(inputs_jax, device)
+    #     else:
+    #         inputs_jax = jnp.array(inputs, dtype=jnp.float64)
+    #     inputs_jax = jax.device_put(inputs_jax, device)
     #
+    #     if is_single_input:
     #         res = calculate_niqe(inputs_bsr, convert_to=channel, crop_border=crop_border)
+    #     else:
+    #         res = []
+    #         for i in range(inputs_bsr.shape[0]):
+    #             res.append(calculate_niqe(inputs_bsr[i], convert_to=channel, crop_border=crop_border))
+    #         res = np.array(res)
+    #
+    #     if use_class:
+    #         func = NIQE_jax(convert_to=channel, crop_border=crop_border)
+    #     else:
     #         func = partial(calculate_niqe_jax, convert_to=channel, crop_border=crop_border)
-    #         func = jax.jit(func)
-    #         res_jax = func(inputs_jax)
+    #     func = jax.jit(func)
+    #     res_jax = func(inputs_jax)
     #
-    #         np.testing.assert_allclose(res, res_jax, rtol=1e-3, atol=1e-7)
-    #
+    #     np.testing.assert_allclose(res, res_jax, atol=1e-7)
+
 
 if __name__ == '__main__':
     absltest.main()

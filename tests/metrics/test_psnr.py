@@ -59,7 +59,7 @@ class TestPSNR(parameterized.TestCase):
         inputs2 = jax.device_put(jnp.array(inputs2, dtype=jnp.uint8), device=device)
         jax_psnr = np.array(psnr_call_func(inputs1, inputs2))
 
-        np.testing.assert_allclose(bsr_psnr, jax_psnr, rtol=1e-3, atol=1e-7)
+        np.testing.assert_allclose(bsr_psnr, jax_psnr, rtol=1e-7, atol=1e-7)
 
 
 if __name__ == '__main__':

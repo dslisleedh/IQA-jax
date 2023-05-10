@@ -29,17 +29,20 @@ def rgb2y(img: jnp.ndarray) -> jnp.ndarray:
 def rgb2gray(img: jnp.ndarray) -> jnp.ndarray:
     """
     Convert RGB image to gray-scale image.
-    https://github.com/XPixelGroup/BasicSR/wiki/Color-conversion-in-SR
 
     Args:
-        img(jnp.ndarray[int, float]): 0 ~ 255 RGB image (N, H, W, C)
+        img(jnp.ndarray[int, float]): 0 ~ 255 RGB image (N, H, W, C) or (H, W, C)
 
     Returns:
-        jnp.ndarray[float32]: Gray-scale image( 0 ~ 255 )
+        jnp.ndarray[float32]: 0 ~ 255 Gray-scale image
     """
-    img = img.astype(jnp.float64)
-    img_gray = jnp.dot(img, jnp.array([0.299, 0.587, 0.114], dtype=jnp.float64))
-    return img_gray
+    # m = (jnp.array([0.299, 0.587, 0.114], dtype=jnp.float32) * 1000).astype(jnp.int64) << 32
+    # return ((jnp.dot(img.astype(jnp.int64), m) >> 32).astype(jnp.float64) / jnp.array(1000., dtype=jnp.float64))[..., jnp.newaxis]
+
+    img = (img.astype(jnp.float64) / jnp.array(255., dtype=jnp.float64)).astype(jnp.float32)
+    img_gray = jnp.dot(
+        img.astype(jnp.float64), jnp.array([0.299, 0.587, 0.114], dtype=jnp.float64))[..., jnp.newaxis]
+    return (img_gray.astype(jnp.float64) * jnp.array(255., dtype=jnp.float64)).astype(jnp.float32)
 
 
 def preprocess(img: jnp.ndarray, crop_border: int, to_y: bool) -> jnp.ndarray:
@@ -115,7 +118,7 @@ def calculate_weights_indices(
 def imresize_half(img: jnp.ndarray, antialiasing: bool = True) -> jnp.ndarray:
     """
     It is hard to implement interpolation function for every scale.
-    So, I use interpolation for half scale that needed for calculate NIQE.
+    So, I implemented interpolation for half scale that needed for calculate NIQE.
 
     Args:
         img:
@@ -129,9 +132,10 @@ def imresize_half(img: jnp.ndarray, antialiasing: bool = True) -> jnp.ndarray:
     _, h, w, c = img.shape
     scale = .5
     h_new = int(h * scale)
-    w_new = int(h * scale)
+    w_new = int(w * scale)
     kernel = cubic
     kernel_size = 4
+    img = img.round(decimals=4)
 
     weights_h, indices_h, sym_len_s_h, sym_len_e_h = calculate_weights_indices(
         h, h_new, scale, kernel, kernel_size, antialiasing
@@ -139,28 +143,34 @@ def imresize_half(img: jnp.ndarray, antialiasing: bool = True) -> jnp.ndarray:
     weights_w, indices_w, sym_len_s_w, sym_len_e_w = calculate_weights_indices(
         w, w_new, scale, kernel, kernel_size, antialiasing
     )
+    weights_w = weights_w.round(decimals=4)
+    weights_h = weights_h.round(decimals=4)
 
+    weights_h_conv = weights_h[:1, :, jnp.newaxis, jnp.newaxis].repeat(c, axis=-1).transpose((1, 0, 2, 3))
+
+    # I want to use conv, but results differ from matlab.
     # H-wise First
-    img = jnp.pad(img, ((0, 0), (sym_len_s_h, sym_len_e_h), (0, 0), (0, 0)), mode='symmetric')
-    # def calc_h(x, indices, weights):
-    #     stacked = jnp.take_along_axis(x, indices[jnp.newaxis, :, jnp.newaxis, jnp.newaxis], axis=1)
-    #     weighted_product = stacked * weights[jnp.newaxis, ..., jnp.newaxis, jnp.newaxis]
-    #     return jnp.sum(weighted_product, axis=1, keepdims=False)
-    # img = jax.vmap(calc_h, in_axes=(None, 0, 0), out_axes=1)(img, indices_h, weights_h)
-    weights_h = weights_h[0, :][..., jnp.newaxis, jnp.newaxis, jnp.newaxis]
-    img = lax.conv_general_dilated(
-        img, weights_h, window_strides=(2, 1), padding='VALID', dimension_numbers=('NHWC', 'HWIO', 'NHWC')
+    img_aug = jnp.pad(img, ((0, 0), (sym_len_s_h, sym_len_e_h), (0, 0), (0, 0)), mode='symmetric')
+    def calc_h(x, indices, weights):
+        stacked = jnp.take_along_axis(x, indices[jnp.newaxis, :, jnp.newaxis, jnp.newaxis], axis=1)
+        weighted_product = stacked * weights[jnp.newaxis, ..., jnp.newaxis, jnp.newaxis]
+        return jnp.sum(weighted_product, axis=1, keepdims=False)
+    img = jax.vmap(
+        calc_h, in_axes=(None, 0, 0), out_axes=1)(img_aug, indices_h, weights_h)
+    img = jnp.round(img, decimals=4)
+
+    img_conv = lax.conv_general_dilated(
+        img_aug, weights_h_conv, (2, 1), 'VALID', dimension_numbers=('NHWC', 'HWIO', 'NHWC'),
+        precision=lax.Precision.HIGH
     )
+    img_conv = jnp.round(img_conv, decimals=4)
 
     # W-wise Second
     img = jnp.pad(img, ((0, 0), (0, 0), (sym_len_s_w, sym_len_e_w), (0, 0)), mode='symmetric')
-    # def calc_w(x, indices, weights):
-    #     stacked = jnp.take_along_axis(x, indices[jnp.newaxis, jnp.newaxis, :, jnp.newaxis], axis=2)
-    #     weighted_product = stacked * weights[jnp.newaxis, jnp.newaxis, ..., jnp.newaxis]
-    #     return jnp.sum(weighted_product, axis=2, keepdims=False)
-    # img = jax.vmap(calc_w, in_axes=(None, 0, 0), out_axes=2)(img, indices_w, weights_w)
-    weights_w = weights_w[0, :][jnp.newaxis, ..., jnp.newaxis, jnp.newaxis]
-    img = lax.conv_general_dilated(
-        img, weights_w, window_strides=(1, 2), padding='VALID', dimension_numbers=('NHWC', 'HWIO', 'NHWC')
-    )
+    def calc_w(x, indices, weights):
+        stacked = jnp.take_along_axis(x, indices[jnp.newaxis, jnp.newaxis, :, jnp.newaxis], axis=2)
+        weighted_product = stacked * weights[jnp.newaxis, jnp.newaxis, ..., jnp.newaxis]
+        return jnp.sum(weighted_product, axis=2, keepdims=False)
+    img = jax.vmap(
+        calc_w, in_axes=(None, 0, 0), out_axes=2)(img, indices_w, weights_w)
     return img
